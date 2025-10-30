@@ -405,11 +405,37 @@ const loadUserAnswers = async (userId) => {
     }
   };
 
-  const handleSubmit = () => {
-    console.log("All answers saved to Airtable in real-time!");
-    console.log("User selections:", selectedAnswers);
-    alert("Thank you! All your answers have been saved.");
-  };
+const handleSubmit = async () => {
+  try {
+    // Calculate completion percentage
+    const completionPercentage = totalQuestions > 0 
+      ? Math.round((answeredCount / totalQuestions) * 100) 
+      : 0;
+    
+    console.log("📊 Submitting completion record:");
+    console.log("  - User:", currentUser.id);
+    console.log("  - Completion:", completionPercentage + "%");
+    console.log("  - Answered:", answeredCount, "of", totalQuestions);
+    
+    // Save to Results table
+    const response = await airtableAxios.post(`/${import.meta.env.VITE_AIRTABLE_TABLE_RESULTS}`, {
+      fields: {
+        user_id: [currentUser.id],
+        completion_percentage: completionPercentage,
+        submitted_at: new Date().toISOString(),
+        summary: `Completed ${answeredCount} of ${totalQuestions} questions`
+      }
+    });
+    
+    console.log("✅ Saved to Results table:", response.data);
+    
+    alert(`Thank you! Your questionnaire is ${completionPercentage}% complete and has been submitted.`);
+    
+  } catch (error) {
+    console.error("❌ Error submitting to Results table:", error);
+    alert("Your answers are saved, but there was an error recording completion. Please contact support.");
+  }
+};
 
   const totalQuestions = questions.length;
   const answeredCount = Object.keys(selectedAnswers).filter(
