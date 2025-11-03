@@ -1,0 +1,185 @@
+/* Comparison Section - Always visible and sticky */
+.comparison-section {
+  position: sticky;
+  top: 32px; /* Exactly below the progress bar */
+  background: #ffffff;
+  margin: 0;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 99; /* Below progress bar (100) but above content */
+  border-top: none; /* Remove top border to be flush with progress bar */
+}
+
+/* Adjust padding when minimized (no user-checkboxes) */
+.comparison-section:not(:has(.user-checkboxes:not(:empty))) {
+  padding: 10px 20px;
+}
+
+.comparison-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* Remove bottom margin when user-checkboxes are hidden */
+.comparison-section:not(:has(.user-checkboxes:not(:empty))) .comparison-header {
+  margin-bottom: 0;
+}
+
+.comparison-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2d2d2d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.comparison-toggle {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e0e0e0;
+  background: white;
+  color: #2d2d2d;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.comparison-toggle:hover {
+  background: #fafafa;
+  border-color: #2d2d2d;
+}
+
+.user-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.user-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.user-checkbox-label:hover {
+  background: #fafafa;
+  border-color: #2d2d2d;
+}
+
+.user-checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #2d2d2d;
+  width: 16px;
+  height: 16px;
+}
+
+.user-checkbox-name {
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+/* Comparison Indicators (dots on answers) */
+.comparison-indicators {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  flex-wrap: wrap;
+}
+
+.comparison-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.comparison-dot:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .comparison-section {
+    position: relative;
+    top: 0;
+    padding: 16px;
+  }
+  
+  .user-checkboxes {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .user-checkbox-label {
+    width: 100%;
+  }
+  
+  .comparison-indicators {
+    flex-wrap: wrap;
+  }
+  
+  .comparison-dot {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+}
+
+/* Animation for when checkboxes appear */
+.user-checkbox-label {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth transitions for comparison dots */
+.comparison-indicators {
+  animation: slideIn 0.2s ease-in-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

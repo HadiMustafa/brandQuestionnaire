@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
+import ComparisonPanel, { ComparisonIndicators } from './ComparisonPanel';
 
 const AIRTABLE_BASE = import.meta.env.VITE_AIRTABLE_BASE_ID;
 const AIRTABLE_API_KEY = import.meta.env.VITE_AIRTABLE_API_KEY;
@@ -9,6 +10,7 @@ const AIRTABLE_TABLE_QUESTIONS = import.meta.env.VITE_AIRTABLE_TABLE_QUESTIONS;
 const AIRTABLE_TABLE_ANSWERS = import.meta.env.VITE_AIRTABLE_TABLE_ANSWERS;
 const AIRTABLE_TABLE_USERS = import.meta.env.VITE_AIRTABLE_TABLE_USERS;
 const AIRTABLE_TABLE_USER_ANSWERS = import.meta.env.VITE_AIRTABLE_TABLE_USER_ANSWERS;
+const AIRTABLE_TABLE_RESULTS = import.meta.env.VITE_AIRTABLE_TABLE_RESULTS;
 
 const airtableAxios = axios.create({
   baseURL: `https://api.airtable.com/v0/${AIRTABLE_BASE}`,
@@ -407,23 +409,74 @@ const loadUserAnswers = async (userId) => {
 
 const handleSubmit = async () => {
   try {
-    // Calculate completion percentage
     const completionPercentage = totalQuestions > 0 
       ? Math.round((answeredCount / totalQuestions) * 100) 
       : 0;
     
-    console.log("📊 Submitting completion record:");
-    console.log("  - User:", currentUser.id);
-    console.log("  - Completion:", completionPercentage + "%");
-    console.log("  - Answered:", answeredCount, "of", totalQuestions);
+    // ✅ GET ALL USER_ANSWER RECORD IDs for linking
+    const userAnswerRecordIds = [];
+    Object.values(userAnswerRecords).forEach(questionRecords => {
+      Object.values(questionRecords).forEach(recordId => {
+        if (recordId) {
+          userAnswerRecordIds.push(recordId);
+        }
+      });
+    });
+    
+    // ✅ BUILD JSON SUMMARY OF ALL RESPONSES
+    const responsesJson = {};
+    
+    sections.forEach(section => {
+      const sectionQuestions = questions.filter(q => getSectionId(q) === section.id);
+      
+      if (sectionQuestions.length > 0) {
+        const sectionData = {};
+        
+        sectionQuestions.forEach(question => {
+          const userAnswerIds = selectedAnswers[question.id] || [];
+          const answerData = [];
+          
+          userAnswerIds.forEach(answerId => {
+            if (answerId === '__other__') {
+              answerData.push({
+                type: "other",
+                text: otherText[question.id] || ""
+              });
+            } else {
+              const answer = answers.find(a => a.id === answerId);
+              if (answer) {
+                answerData.push({
+                  id: answerId,
+                  label: answer.fields.option_label,
+                  description: answer.fields.option_description || null
+                });
+              }
+            }
+          });
+          
+          sectionData[question.fields.question_text] = {
+            question_id: question.id,
+            answers: answerData,
+            answered: answerData.length > 0
+          };
+        });
+        
+        responsesJson[section.fields.title] = sectionData;
+      }
+    });
+    
+    console.log("📊 Submitting completion record");
+    console.log("  - Linking", userAnswerRecordIds.length, "answer records");
+    console.log("  - JSON summary:", responsesJson);
     
     // Save to Results table
-    const response = await airtableAxios.post(`/${import.meta.env.VITE_AIRTABLE_TABLE_RESULTS}`, {
+    const response = await airtableAxios.post(`/${AIRTABLE_TABLE_RESULTS}`, {
       fields: {
         user_id: [currentUser.id],
         completion_percentage: completionPercentage,
         submitted_at: new Date().toISOString(),
-        summary: `Completed ${answeredCount} of ${totalQuestions} questions`
+        summary: JSON.stringify(responsesJson, null, 2), // ✅ JSON FORMAT
+        user_answers: userAnswerRecordIds // ✅ LINKED RECORDS
       }
     });
     
@@ -436,6 +489,16 @@ const handleSubmit = async () => {
     alert("Your answers are saved, but there was an error recording completion. Please contact support.");
   }
 };
+
+
+  const comparison = ComparisonPanel({
+    currentUser,
+    airtableAxios,
+    AIRTABLE_TABLE_USERS,
+    AIRTABLE_TABLE_RESULTS,
+    AIRTABLE_TABLE_USER_ANSWERS,
+    answers
+  });
 
   const totalQuestions = questions.length;
   const answeredCount = Object.keys(selectedAnswers).filter(
@@ -509,6 +572,12 @@ const handleSubmit = async () => {
         </div>
       </div>
 
+
+      {/* Comparison Panel */}
+      {comparison?.ui}
+
+
+
       {sections.map(section => {
         const sectionQuestions = questions.filter(q => getSectionId(q) === section.id);
         
@@ -536,6 +605,10 @@ const handleSubmit = async () => {
                       const hasDetails = answer.fields.option_description;
                       const isExpanded = expandedAnswers[answer.id];
                       
+                      // Get comparison users who selected this answer
+                      const comparisonUsers = comparison?.getComparisonUsers(question.id, answer.id) || [];
+    
+
                       return (
                         <div key={answer.id} className="answer">
                           <div className="answer-main">
@@ -547,6 +620,14 @@ const handleSubmit = async () => {
                                 onChange={() => handleAnswerToggle(question.id, answer.id, isOther)}
                               />
                               <span className="answer-label">{answer.fields.option_label}</span>
+                              {/* Comparison Indicators */}
+                              {comparison && (
+                                <ComparisonIndicators 
+                                  userIds={comparisonUsers}
+                                  getUserColor={comparison.getUserColor}
+                                  getUserName={comparison.getUserName}
+                                />
+                              )}
                             </label>
                             
                             {hasDetails && (
@@ -583,17 +664,26 @@ const handleSubmit = async () => {
                     
                     {/* ✅ UPDATED: Generic "Other" option with Airtable integration */}
                     {!questionAnswers.some(a => a.fields.is_other_option) && (
-                      <div className="answer">
-                        <div className="answer-main">
-                          <label>
-                            <input
-                              type={allowMultiple ? "checkbox" : "radio"}
-                              name={`question-${question.id}`}
-                              checked={otherSelected[question.id] || false}
-                              onChange={() => handleGenericOtherToggle(question.id)}
+                    <div className="answer">
+                      <div className="answer-main">
+                        <label>
+                          <input
+                            type={allowMultiple ? "checkbox" : "radio"}
+                            name={`question-${question.id}`}
+                            checked={otherSelected[question.id] || false}
+                            onChange={() => handleGenericOtherToggle(question.id)}
+                          />
+                          <span className="answer-label">Other</span>
+                          
+                          {/* Comparison for Other */}
+                          {comparison && (
+                            <ComparisonIndicators 
+                              userIds={comparison?.getOtherComparisonUsers(question.id) || []}
+                              getUserColor={comparison.getUserColor}
+                              getUserName={comparison.getUserName}
                             />
-                            <span className="answer-label">Other</span>
-                          </label>
+                          )}
+                        </label>
                         </div>
                         
                         {otherSelected[question.id] && (
